@@ -1,0 +1,229 @@
+
+import requests
+import ipaddress
+import json
+import getpass
+import os
+from datetime import datetime
+
+# ==========================
+#       AMMAR TOOL-A
+#    DEVELOPER: AMMAR_BADAWY
+# ==========================
+
+PASSWORD = "AM12"
+API = "https://ipwho.is/"
+
+G = "\033[92m"
+R = "\033[91m"
+Y = "\033[93m"
+C = "\033[96m"
+W = "\033[97m"
+X = "\033[0m"
+
+def banner():
+    os.system("clear")
+    print(G + r"""
+    █████╗ ███╗   ███╗███╗   ███╗
+   ██╔══██╗████╗ ████║████╗ ████║
+   ███████║██╔████╔██║██╔████╔██║
+   ██╔══██║██║╚██╔╝██║██║╚██╔╝██║
+   ██║  ██║██║ ╚═╝ ██║██║ ╚═╝ ██║
+
+          AMMAR TOOL-A
+    ============================
+      DEVELOPER: AMMAR_BADAWY
+    ============================
+    """ + X)
+
+def login():
+    banner()
+    print(C + "[ AUTHENTICATION REQUIRED ]" + X)
+
+    for i in range(3):
+        password = getpass.getpass("Enter Password: ")
+        if password == PASSWORD:
+            print(G + "\n[+] ACCESS GRANTED" + X)
+            input("Press Enter...")
+            return True
+        print(R + "[!] WRONG PASSWORD" + X)
+
+    return False
+
+def lookup():
+    ip = input("\nEnter Public IP: ").strip()
+
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        print(R + "[!] Invalid IP Address" + X)
+        return None
+
+    if not address.is_global:
+        print(Y + "[!] Enter a public IP address." + X)
+        return None
+
+    try:
+        response = requests.get(
+            API + str(address),
+            timeout=15
+        )
+        data = response.json()
+
+        if not data.get("success"):
+            print(R + "[!] Lookup failed" + X)
+            return None
+
+        connection = data.get("connection") or {}
+        timezone = data.get("timezone") or {}
+
+        result = {
+            "IP": data.get("ip"),
+            "Country": data.get("country"),
+            "Region": data.get("region"),
+            "City": data.get("city"),
+            "Postal": data.get("postal"),
+            "ISP": connection.get("isp"),
+            "Organization": connection.get("org"),
+            "ASN": connection.get("asn"),
+            "Timezone": timezone.get("id"),
+            "Latitude": data.get("latitude"),
+            "Longitude": data.get("longitude")
+        }
+
+        print(G + "\n====== IP INFORMATION ======" + X)
+
+        for key, value in result.items():
+            print(C + key + ": " + W + str(value or "Unavailable") + X)
+
+        lat = result["Latitude"]
+        lon = result["Longitude"]
+
+        if lat is not None and lon is not None:
+            print(Y + "\nMAP LINK:" + X)
+            print(f"https://www.google.com/maps?q={lat},{lon}")
+
+        print(Y + "\n[!] Location is approximate, not a home address." + X)
+
+        return result
+
+    except requests.RequestException:
+        print(R + "[!] Internet connection error." + X)
+    except ValueError:
+        print(R + "[!] Invalid API response." + X)
+
+    return None
+
+def my_ip():
+    try:
+        ip = requests.get(
+            "https://api.ipify.org",
+            timeout=10
+        ).text.strip()
+
+        print(G + "\nYour Public IP: " + W + ip + X)
+        return lookup_ip(ip)
+
+    except requests.RequestException:
+        print(R + "[!] Connection error." + X)
+
+def lookup_ip(ip):
+    try:
+        response = requests.get(API + ip, timeout=15)
+        data = response.json()
+
+        if not data.get("success"):
+            return None
+
+        conn = data.get("connection") or {}
+        tz = data.get("timezone") or {}
+
+        result = {
+            "IP": data.get("ip"),
+            "Country": data.get("country"),
+            "Region": data.get("region"),
+            "City": data.get("city"),
+            "ISP": conn.get("isp"),
+            "Organization": conn.get("org"),
+            "Timezone": tz.get("id"),
+            "Latitude": data.get("latitude"),
+            "Longitude": data.get("longitude")
+        }
+
+        for k, v in result.items():
+            print(C + k + ": " + W + str(v or "Unavailable") + X)
+
+        return result
+
+    except requests.RequestException:
+        print(R + "Connection error." + X)
+        return None
+
+def save_result(result):
+    if not result:
+        print(Y + "No result to save." + X)
+        return
+
+    os.makedirs("results", exist_ok=True)
+
+    filename = "results/IP_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".json"
+
+    with open(filename, "w", encoding="utf-8") as file:
+        json.dump(result, file, indent=4, ensure_ascii=False)
+
+    print(G + "[+] Saved: " + filename + X)
+
+def menu():
+    last_result = None
+
+    while True:
+        banner()
+
+        print(G + """
+        [1] IP INFORMATION
+        [2] MY PUBLIC IP
+        [3] SAVE LAST RESULT
+        [4] ABOUT DEVELOPER
+        [0] EXIT
+        """ + X)
+
+        choice = input(C + "AMMAR TOOL > " + X)
+
+        if choice == "1":
+            last_result = lookup()
+
+        elif choice == "2":
+            ip = input("Enter your public IP: ").strip()
+            try:
+                ip = str(ipaddress.ip_address(ip))
+                if ipaddress.ip_address(ip).is_global:
+                    last_result = lookup_ip(ip)
+                else:
+                    print(Y + "Not a public IP." + X)
+            except ValueError:
+                print(R + "Invalid IP." + X)
+
+        elif choice == "3":
+            save_result(last_result)
+
+        elif choice == "4":
+            print(G + "\nAMMAR TOOL-A")
+            print("DEVELOPER: AMMAR_BADAWY")
+            print("VERSION: 1.0.0")
+            print("IP INFORMATION TOOL")
+            print(X)
+
+        elif choice == "0":
+            print(G + "GOODBYE AMMAR TOOL!" + X)
+            break
+
+        else:
+            print(R + "Invalid option!" + X)
+
+        input("\nPress Enter to continue...")
+
+if __name__ == "__main__":
+    if login():
+        menu()
+    else:
+        print(R + "ACCESS DENIED" + X)
